@@ -37,6 +37,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'lh6.googleusercontent.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.dummyjson.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.dummyjson.com',
+      },
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',

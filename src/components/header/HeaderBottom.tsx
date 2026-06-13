@@ -1,4 +1,6 @@
 import React from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { LuMenu } from "react-icons/lu";
 import { useAuth } from "../../hooks/useAuth";
 import { useDispatch } from "react-redux";
@@ -21,8 +23,18 @@ const HeaderBottom=()=>{
         <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300"><LuMenu/>All</p>
         <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300">Todays Deals</p>
         <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300">Amazon miniTV</p>
-        <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300">Sell</p>
-        <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300">Best Sellers</p>
+        <Link href="/amazon-now" className="flex items-center h-8 px-2 cursor-pointer group">
+            <div className="rounded-md overflow-hidden flex items-center ring-1 ring-transparent group-hover:ring-white duration-300 shadow-sm">
+                <Image
+                    src="/amazon-now.png"
+                    alt="Amazon Now"
+                    width={90}
+                    height={24}
+                    className="object-contain block"
+                    priority
+                />
+            </div>
+        </Link>
         <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300">Mobiles</p>
         <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300">Customer Service</p>
         <p className="flex items-center gap-1 h-8 px-2 border border-transparent hover:border-white cursor-pointer duration-300">Electronics</p>
