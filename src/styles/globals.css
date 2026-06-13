@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@theme {
+    --breakpoint-*: initial;
+    --breakpoint-xs: 320px;
+    --breakpoint-sm: 375px;
+    --breakpoint-sml: 500px;
+    --breakpoint-md: 667px;
+    --breakpoint-mdl: 768px;
+    --breakpoint-lg: 960px;
+    --breakpoint-lgl: 1024px;
+    --breakpoint-xl: 1280px;
+    --color-amazon_blue: #131921;
+    --color-amazon_light: #232F3E;
+    --color-amazon_yellow: #febd69;
+    --color-lightText: #ccc;
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
