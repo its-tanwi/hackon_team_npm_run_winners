@@ -6,7 +6,7 @@ Run locally with::
 
 Then in another terminal::
 
-    curl -X POST http://localhost:8000/identify-needs \\
+    curl -X POST http://localhost:8000/run-cart-agent \\
       -H "Content-Type: application/json" \\
       -d '{"prompt": "I am sick, having fever"}'
 
@@ -19,7 +19,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.graph import run_agent
-from app.models import IdentifyNeedsRequest, NeedsResult
+from app.models import (
+    IdentifyNeedsRequest,
+    NeedsResult,
+    RunCartAgentRequest,
+    RunCartAgentResponse,
+)
 
 app = FastAPI(
     title="Amazon Now Agent",
@@ -27,10 +32,9 @@ app = FastAPI(
         "LangGraph + Gemini agent that turns a free-text user request "
         "(e.g. 'I am sick, having fever') into a structured shopping cart."
     ),
-    version="0.1.0",
+    version="0.2.0",
 )
 
-# Allow the Next.js dev server to call us during development.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -51,12 +55,7 @@ def health() -> dict:
 
 @app.post("/identify-needs", response_model=NeedsResult)
 def identify_needs_endpoint(req: IdentifyNeedsRequest) -> NeedsResult:
-    """Run Subagent 1 and return the identified needs.
-
-    This is the only LangGraph entrypoint exposed in Step 1. As Subagents 2
-    and 3 land, they'll be reachable through additional endpoints (or this
-    one will return a richer payload).
-    """
+    """Run only Subagent 1 (Needs Identifier) — useful for debugging."""
     state = run_agent(req.prompt)
     needs = state.get("identified_needs")
     if needs is None:
@@ -65,3 +64,17 @@ def identify_needs_endpoint(req: IdentifyNeedsRequest) -> NeedsResult:
             detail="Needs Identifier did not produce any output.",
         )
     return needs
+
+
+@app.post("/run-cart-agent", response_model=RunCartAgentResponse)
+def run_cart_agent_endpoint(req: RunCartAgentRequest) -> RunCartAgentResponse:
+    """Run the full pipeline: identify needs -> match catalog products."""
+    state = run_agent(req.prompt)
+    needs = state.get("identified_needs")
+    matches = state.get("matched_products")
+    if needs is None or matches is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Agent pipeline did not produce a complete result.",
+        )
+    return RunCartAgentResponse(needs=needs, matches=matches)

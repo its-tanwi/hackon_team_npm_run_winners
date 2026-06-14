@@ -4,7 +4,7 @@ These define the structured outputs we expect from each subagent
 and the request/response shapes for the FastAPI endpoints.
 """
 
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,13 @@ NeedCategory = Literal[
     "snacks",     # easy-to-eat foods (biscuits, crackers)
     "other",
 ]
+
+MatchConfidence = Literal["high", "medium", "low"]
+
+
+# ---------------------------------------------------------------------------
+# Subagent 1 (Needs Identifier)
+# ---------------------------------------------------------------------------
 
 
 class IdentifiedNeed(BaseModel):
@@ -46,6 +53,64 @@ class NeedsResult(BaseModel):
     )
 
 
+# ---------------------------------------------------------------------------
+# Catalog (DummyJSON groceries)
+# ---------------------------------------------------------------------------
+
+
+class CatalogProduct(BaseModel):
+    """A normalized product from the upstream catalog (DummyJSON groceries)."""
+
+    id: int
+    title: str
+    price: float = Field(description="Price as returned by upstream (USD).")
+    discount_percentage: float = 0.0
+    thumbnail: str
+    description: str
+    brand: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Subagent 2 (Catalog Matcher)
+# ---------------------------------------------------------------------------
+
+
+class MatchedItem(BaseModel):
+    """A single product matched to one of the identified needs."""
+
+    need_item: str = Field(
+        description="The original ``need.item`` string this match was generated for."
+    )
+    product_id: int = Field(description="DummyJSON product id of the chosen product.")
+    product_title: str = Field(description="Display title of the chosen product.")
+    quantity: int = Field(default=1, ge=1, description="How many units to add to cart.")
+    confidence: MatchConfidence = Field(
+        description="How well the product matches the need: high/medium/low."
+    )
+    rationale: str = Field(
+        description="One-sentence explanation of why this product was chosen for this need."
+    )
+
+
+class MatchResult(BaseModel):
+    """Output of the Catalog Matcher subagent (Subagent 2)."""
+
+    matches: List[MatchedItem] = Field(
+        default_factory=list,
+        description="Products selected for the needs we could match.",
+    )
+    unmatched_needs: List[str] = Field(
+        default_factory=list,
+        description="Needs that had no good catalog match (e.g. paracetamol, ORS).",
+    )
+
+
+# ---------------------------------------------------------------------------
+# FastAPI request / response shapes
+# ---------------------------------------------------------------------------
+
+
 class IdentifyNeedsRequest(BaseModel):
     """POST body for the /identify-needs FastAPI endpoint."""
 
@@ -53,3 +118,16 @@ class IdentifyNeedsRequest(BaseModel):
         description="Free-text user input, e.g. 'I am sick, having fever'.",
         min_length=1,
     )
+
+
+class RunCartAgentRequest(BaseModel):
+    """POST body for /run-cart-agent (the full pipeline: needs -> matches)."""
+
+    prompt: str = Field(min_length=1)
+
+
+class RunCartAgentResponse(BaseModel):
+    """Full pipeline response: needs from Subagent 1 + matches from Subagent 2."""
+
+    needs: NeedsResult
+    matches: MatchResult
