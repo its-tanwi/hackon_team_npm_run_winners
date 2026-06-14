@@ -15,6 +15,8 @@ Or open http://localhost:8000/docs for the auto-generated Swagger UI.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -25,6 +27,31 @@ from app.models import (
     RunCartAgentRequest,
     RunCartAgentResponse,
 )
+
+logger = logging.getLogger("amazon-now-agent")
+
+
+def _translate_llm_error(exc: Exception) -> HTTPException:
+    """Map common Gemini failures into clean HTTP errors with friendly messages."""
+    text = str(exc)
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return HTTPException(
+            status_code=429,
+            detail=(
+                "We've hit today's free-tier Gemini quota. Please try again "
+                "in a few minutes, switch GEMINI_MODEL in agent/.env (e.g. to "
+                "gemini-2.0-flash-lite), or enable billing on the API key."
+            ),
+        )
+    if "API key" in text or "PERMISSION_DENIED" in text:
+        return HTTPException(
+            status_code=401,
+            detail="Gemini API key is missing or invalid. Check agent/.env (GOOGLE_API_KEY).",
+        )
+    return HTTPException(
+        status_code=502,
+        detail=f"Upstream LLM error: {text[:300]}",
+    )
 
 app = FastAPI(
     title="Amazon Now Agent",
@@ -56,7 +83,11 @@ def health() -> dict:
 @app.post("/identify-needs", response_model=NeedsResult)
 def identify_needs_endpoint(req: IdentifyNeedsRequest) -> NeedsResult:
     """Run only Subagent 1 (Needs Identifier) — useful for debugging."""
-    state = run_agent(req.prompt)
+    try:
+        state = run_agent(req.prompt)
+    except Exception as exc:
+        logger.exception("identify_needs failed")
+        raise _translate_llm_error(exc)
     needs = state.get("identified_needs")
     if needs is None:
         raise HTTPException(
@@ -68,13 +99,18 @@ def identify_needs_endpoint(req: IdentifyNeedsRequest) -> NeedsResult:
 
 @app.post("/run-cart-agent", response_model=RunCartAgentResponse)
 def run_cart_agent_endpoint(req: RunCartAgentRequest) -> RunCartAgentResponse:
-    """Run the full pipeline: identify needs -> match catalog products."""
-    state = run_agent(req.prompt)
+    """Run the full pipeline: identify needs -> match catalog -> build cart."""
+    try:
+        state = run_agent(req.prompt)
+    except Exception as exc:
+        logger.exception("run-cart-agent failed")
+        raise _translate_llm_error(exc)
     needs = state.get("identified_needs")
     matches = state.get("matched_products")
-    if needs is None or matches is None:
+    cart = state.get("cart_plan")
+    if needs is None or matches is None or cart is None:
         raise HTTPException(
             status_code=500,
             detail="Agent pipeline did not produce a complete result.",
         )
-    return RunCartAgentResponse(needs=needs, matches=matches)
+    return RunCartAgentResponse(needs=needs, matches=matches, cart=cart)

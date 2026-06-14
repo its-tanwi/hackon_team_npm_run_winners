@@ -16,19 +16,17 @@ from pathlib import Path
 from typing import List, Tuple
 
 import numpy as np
-from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from pydantic import SecretStr
 
 from app.catalog.source import get_catalog
+from app.config import GEMINI_EMBEDDING_MODEL
 from app.models import CatalogProduct
 
-load_dotenv()
-
 # `text-embedding-004` was retired in Jan 2026; `gemini-embedding-001` is the
-# recommended text-only replacement (same v1beta endpoint, just a new id).
+# default text-only replacement. Override via GEMINI_EMBEDDING_MODEL env var.
 # See: https://ai.google.dev/gemini-api/docs/embeddings
-EMBEDDING_MODEL = "gemini-embedding-001"
+EMBEDDING_MODEL = GEMINI_EMBEDDING_MODEL
 
 _AGENT_ROOT = Path(__file__).resolve().parents[2]
 _CACHE_PATH = _AGENT_ROOT / "data" / "embeddings.json"

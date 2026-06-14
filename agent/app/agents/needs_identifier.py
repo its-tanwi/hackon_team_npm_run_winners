@@ -11,15 +11,11 @@ from __future__ import annotations
 import sys
 from functools import lru_cache
 
-from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+from app.config import GEMINI_MODEL
 from app.models import NeedsResult
-
-load_dotenv()
-
-MODEL_NAME = "gemini-3.5-flash"
 
 SYSTEM_PROMPT = """You are a helpful shopping assistant for an Indian quick-commerce app called Amazon Now.
 
@@ -49,7 +45,7 @@ def _build_chain():
     Uses ``with_structured_output`` so we get a typed ``NeedsResult`` back
     instead of having to parse free-text JSON.
     """
-    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.3)
+    llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.3)
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", SYSTEM_PROMPT),

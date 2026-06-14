@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import NowHeader from "@/components/amazon-now/NowHeader";
 import PromoStrip from "@/components/amazon-now/PromoStrip";
@@ -6,6 +6,7 @@ import CategoryTabs, { CATEGORIES } from "@/components/amazon-now/CategoryTabs";
 import ProductCard, { NowProduct } from "@/components/amazon-now/ProductCard";
 import ProductCardSkeleton from "@/components/amazon-now/ProductCardSkeleton";
 import CartFooter from "@/components/amazon-now/CartFooter";
+import AgentChat from "@/components/amazon-now/AgentChat";
 import {
     fetchAmazonNowProducts,
     groupProductsByCategory,
@@ -69,6 +70,24 @@ const AmazonNowPage = () => {
         });
     };
 
+    const handleAddBulk = useCallback(
+        (lines: { product: NowProduct; qty: number }[]) => {
+            setCart((prev) => {
+                const next = { ...prev };
+                lines.forEach(({ product, qty }) => {
+                    const key = String(product.id);
+                    const existing = next[key];
+                    next[key] = {
+                        product,
+                        qty: existing ? existing.qty + qty : qty,
+                    };
+                });
+                return next;
+            });
+        },
+        []
+    );
+
     const { itemCount, total } = useMemo(() => {
         const lines = Object.values(cart);
         return {
@@ -85,6 +104,7 @@ const AmazonNowPage = () => {
             <main className="min-h-screen bg-gray-100 pb-32">
                 <div className="max-w-screen-2xl mx-auto">
                     <NowHeader searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+                    {!isSearching && <AgentChat onAddProducts={handleAddBulk} />}
                     {!isSearching && <PromoStrip />}
                     {!isSearching && (
                         <CategoryTabs activeId={activeCategory} onChange={setActiveCategory} />

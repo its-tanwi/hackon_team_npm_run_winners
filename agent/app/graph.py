@@ -1,11 +1,9 @@
 """LangGraph state graph wiring all subagents together.
 
-Today this graph has two nodes:
+The graph has three nodes that run sequentially:
   1. ``identify_needs``  — Subagent 1 (Needs Identifier)
   2. ``match_catalog``   — Subagent 2 (Catalog Matcher)
-
-Adding Subagent 3 (Cart Builder) later is just another ``add_node`` +
-``add_edge`` call.
+  3. ``build_cart``      — Subagent 3 (Cart Builder)
 """
 
 from __future__ import annotations
@@ -15,9 +13,10 @@ from typing import Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from app.agents.cart_builder import build_cart
 from app.agents.catalog_matcher import match_catalog
 from app.agents.needs_identifier import identify_needs
-from app.models import MatchResult, NeedsResult
+from app.models import CartPlan, MatchResult, NeedsResult
 
 
 class CartAgentState(TypedDict, total=False):
@@ -30,9 +29,7 @@ class CartAgentState(TypedDict, total=False):
     user_prompt: str
     identified_needs: Optional[NeedsResult]
     matched_products: Optional[MatchResult]
-
-    # Reserved for Subagent 3:
-    # cart_items: list
+    cart_plan: Optional[CartPlan]
 
 
 def identify_needs_node(state: CartAgentState) -> dict:
@@ -42,15 +39,21 @@ def identify_needs_node(state: CartAgentState) -> dict:
 
 
 def match_catalog_node(state: CartAgentState) -> dict:
-    """Subagent 2 wrapped as a LangGraph node.
-
-    Reads the ``identified_needs`` from upstream state and produces
-    ``matched_products`` with concrete catalog product ids.
-    """
+    """Subagent 2 wrapped as a LangGraph node."""
     needs = state.get("identified_needs")
     if needs is None:
         return {"matched_products": MatchResult(matches=[], unmatched_needs=[])}
     return {"matched_products": match_catalog(needs)}
+
+
+def build_cart_node(state: CartAgentState) -> dict:
+    """Subagent 3 wrapped as a LangGraph node."""
+    needs = state.get("identified_needs")
+    matches = state.get("matched_products")
+    if needs is None or matches is None:
+        return {"cart_plan": CartPlan(items=[], suggestions=[], message="")}
+    plan = build_cart(state["user_prompt"], needs, matches)
+    return {"cart_plan": plan}
 
 
 def build_graph():
@@ -58,9 +61,11 @@ def build_graph():
     builder = StateGraph(CartAgentState)
     builder.add_node("identify_needs", identify_needs_node)
     builder.add_node("match_catalog", match_catalog_node)
+    builder.add_node("build_cart", build_cart_node)
     builder.add_edge(START, "identify_needs")
     builder.add_edge("identify_needs", "match_catalog")
-    builder.add_edge("match_catalog", END)
+    builder.add_edge("match_catalog", "build_cart")
+    builder.add_edge("build_cart", END)
     return builder.compile()
 
 
@@ -91,9 +96,20 @@ def _pretty_print(state: CartAgentState) -> None:
                 f"  {i}. need='{m.need_item}' -> #{m.product_id} {m.product_title} "
                 f"x{m.quantity}  [{m.confidence}]"
             )
-            print(f"       {m.rationale}")
         if matches.unmatched_needs:
-            print(f"\nUnmatched: {', '.join(matches.unmatched_needs)}")
+            print(f"  Unmatched: {', '.join(matches.unmatched_needs)}")
+
+    plan = state.get("cart_plan")
+    if plan is not None:
+        print(f"\nMessage: {plan.message}")
+        print(f"\nFinal cart ({len(plan.items)} item(s), ~${plan.total_estimated_cost_usd:.2f}):")
+        for i, item in enumerate(plan.items, 1):
+            print(f"  {i}. #{item.id} {item.title} x{item.quantity}  @ ${item.price:.2f}")
+            print(f"       {item.rationale}")
+        if plan.suggestions:
+            print("  Suggestions:")
+            for s in plan.suggestions:
+                print(f"    - {s}")
     print()
 
 

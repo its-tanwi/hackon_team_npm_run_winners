@@ -107,6 +107,62 @@ class MatchResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Subagent 3 (Cart Builder)
+# ---------------------------------------------------------------------------
+
+
+class CartCuratorPick(BaseModel):
+    """A single LLM decision: keep this matched product, with adjusted quantity."""
+
+    product_id: int = Field(description="DummyJSON product id (must come from matches).")
+    quantity: int = Field(ge=1, le=10, description="Final quantity to put in the cart.")
+    rationale: str = Field(
+        description="One short sentence explaining why this is in the cart, "
+                    "phrased for a human shopper."
+    )
+
+
+class CartCuratorDraft(BaseModel):
+    """Raw structured output from the LLM curator (before we hydrate product details)."""
+
+    items: List[CartCuratorPick] = Field(default_factory=list)
+    suggestions: List[str] = Field(
+        default_factory=list,
+        description="Bullet-style alternatives for unmatched needs, e.g. "
+                    "'paracetamol — try our pharmacy partner'.",
+    )
+    message: str = Field(
+        description="A friendly 1-2 sentence summary the frontend can show to the user."
+    )
+
+
+class CartLineItem(BaseModel):
+    """A fully hydrated cart item ready for the frontend Redux/local store.
+
+    Field names match the frontend's ``StoreProduct`` / Amazon-Now ``NowProduct``
+    shapes so dispatching is trivial.
+    """
+
+    id: int
+    title: str
+    price: float = Field(description="Price as USD from DummyJSON. Frontend converts to INR.")
+    description: str
+    category: str
+    image: str
+    quantity: int
+    rationale: str
+
+
+class CartPlan(BaseModel):
+    """Final cart payload returned by Subagent 3."""
+
+    items: List[CartLineItem] = Field(default_factory=list)
+    suggestions: List[str] = Field(default_factory=list)
+    message: str = ""
+    total_estimated_cost_usd: float = 0.0
+
+
+# ---------------------------------------------------------------------------
 # FastAPI request / response shapes
 # ---------------------------------------------------------------------------
 
@@ -127,7 +183,8 @@ class RunCartAgentRequest(BaseModel):
 
 
 class RunCartAgentResponse(BaseModel):
-    """Full pipeline response: needs from Subagent 1 + matches from Subagent 2."""
+    """Full pipeline response across all three subagents."""
 
     needs: NeedsResult
     matches: MatchResult
+    cart: CartPlan

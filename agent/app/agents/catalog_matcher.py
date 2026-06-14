@@ -21,12 +21,12 @@ from collections import OrderedDict
 from functools import lru_cache
 from typing import Dict, Iterable, List
 
-from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.catalog import lexical, semantic
 from app.catalog.source import get_catalog
+from app.config import GEMINI_MODEL
 from app.models import (
     CatalogProduct,
     IdentifiedNeed,
@@ -34,9 +34,6 @@ from app.models import (
     NeedsResult,
 )
 
-load_dotenv()
-
-MODEL_NAME = "gemini-3.5-flash"
 PER_RETRIEVER_TOP_K = 3
 
 
@@ -110,7 +107,7 @@ def _format_candidates(candidates: Iterable[CatalogProduct]) -> str:
 @lru_cache(maxsize=1)
 def _build_chain():
     # 60s ceiling so a stuck Gemini call surfaces instead of hanging forever.
-    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1, timeout=60)
+    llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.1, timeout=60)
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", SYSTEM_PROMPT),

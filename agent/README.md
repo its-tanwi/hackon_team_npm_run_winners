@@ -9,9 +9,20 @@ When a user types something like _"I am sick, having fever"_, the agent:
 2. **Matches catalog** — finds the closest products in the DummyJSON catalog using a
    production-style retrieval pipeline (Subagent 2):
    - **Lexical retrieval** (BM25) — top 3 candidates per need by keyword score
-   - **Semantic retrieval** (Gemini `text-embedding-004`) — top 3 candidates by vector similarity
+   - **Semantic retrieval** (Gemini `gemini-embedding-001`) — top 3 candidates by vector similarity
    - **LLM rerank** — Gemini picks the single best candidate per need, with confidence + rationale
-3. **Builds cart** — returns items the frontend should add via Redux _(Subagent 3, coming next)_
+3. **Builds cart** — Subagent 3 curates the final cart: drops weak matches, sets
+   sensible quantities, writes a friendly message, and suggests alternatives for
+   needs the catalog doesn't cover. The HTTP response carries the full hydrated
+   cart payload, ready for the frontend to dispatch into local cart state.
+
+```
+"I am sick, having fever"
+   │
+   ▼
+LangGraph: identify_needs ──► match_catalog ──► build_cart ──► HTTP response
+            (Subagent 1)       (Subagent 2)      (Subagent 3)
+```
 
 ## Quick start
 
@@ -39,11 +50,11 @@ http://localhost:8000/docs.
 
 ### Endpoints
 
-| Method | Path                | What it does                                     |
-| ------ | ------------------- | ------------------------------------------------ |
-| GET    | `/health`           | Liveness probe                                   |
-| POST   | `/identify-needs`   | Just Subagent 1 — needs only                     |
-| POST   | `/run-cart-agent`   | Full pipeline — needs + matched products         |
+| Method | Path                | What it does                                          |
+| ------ | ------------------- | ----------------------------------------------------- |
+| GET    | `/health`           | Liveness probe                                        |
+| POST   | `/identify-needs`   | Just Subagent 1 — needs only                          |
+| POST   | `/run-cart-agent`   | Full pipeline — needs + matches + curated cart plan   |
 
 Example:
 
@@ -80,7 +91,10 @@ python -m app.catalog.semantic "fever medication"
 # Subagent 2 (runs Subagent 1 first, then matches)
 python -m app.agents.catalog_matcher "I am sick, having fever"
 
-# Full graph
+# Subagent 3 (runs Subagents 1 + 2 first, then curates the final cart)
+python -m app.agents.cart_builder "I am sick, having fever"
+
+# Full graph end-to-end
 python -m app.graph "I am sick, having fever"
 ```
 
@@ -99,7 +113,8 @@ agent/
     ├── models.py           Pydantic schemas (state, request, response)
     ├── agents/
     │   ├── needs_identifier.py   Subagent 1: prompt -> structured needs
-    │   └── catalog_matcher.py    Subagent 2: needs -> matched products
+    │   ├── catalog_matcher.py    Subagent 2: needs -> matched products
+    │   └── cart_builder.py       Subagent 3: matches -> curated cart plan
     └── catalog/
         ├── source.py        DummyJSON fetch + in-memory cache
         ├── lexical.py       BM25 retriever
