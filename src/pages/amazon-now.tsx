@@ -7,6 +7,7 @@ import ProductCard, { NowProduct } from "@/components/amazon-now/ProductCard";
 import ProductCardSkeleton from "@/components/amazon-now/ProductCardSkeleton";
 import CartFooter from "@/components/amazon-now/CartFooter";
 import AgentChat from "@/components/amazon-now/AgentChat";
+import SmartCart from "@/components/amazon-now/SmartCart";
 import {
     fetchAmazonNowProducts,
     groupProductsByCategory,
@@ -106,6 +107,7 @@ const AmazonNowPage = () => {
                     <NowHeader searchTerm={searchTerm} onSearchChange={setSearchTerm} />
                     {!isSearching && <AgentChat onAddProducts={handleAddBulk} />}
                     {!isSearching && <PromoStrip />}
+                    {!isSearching && <SmartCart />}
                     {!isSearching && (
                         <CategoryTabs activeId={activeCategory} onChange={setActiveCategory} />
                     )}
